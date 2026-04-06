@@ -24,7 +24,6 @@ export function jsonError(
 }
 
 export function safeErrorMessage(e: unknown) {
-  if (process.env.NODE_ENV === 'production') return 'Internal server error'
   if (e instanceof Error) return e.message
   return 'Unknown error'
 }

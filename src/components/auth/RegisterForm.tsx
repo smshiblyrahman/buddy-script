@@ -67,7 +67,8 @@ export function RegisterForm() {
       return
     }
     if (!res.ok) {
-      setServerError('Something went wrong. Please try again.')
+      const data = await res.json().catch(() => ({}))
+      setServerError(data.error || 'Something went wrong. Please try again.')
       return
     }
     router.push('/feed')

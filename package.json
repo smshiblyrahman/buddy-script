@@ -20,6 +20,7 @@
     "@aws-sdk/s3-request-presigner": "^3.962.0",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.19.3",
+    "@supabase/supabase-js": "^2.101.1",
     "@upstash/redis": "^1.36.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
