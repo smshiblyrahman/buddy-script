@@ -1,0 +1,66 @@
+import type { NextRequest } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { withAuth } from '@/lib/auth'
+import { paginationSchema } from '@/lib/validations'
+import { jsonData, jsonError, safeErrorMessage } from '@/lib/api-utils'
+
+export const POST = withAuth(async (_req: NextRequest, ctx) => {
+  try {
+    const replyId = String(ctx.params?.replyId || '')
+    if (!replyId) return jsonError('Invalid replyId', 400, 'VALIDATION_ERROR')
+
+    const userId = ctx.user.userId
+    const existing = await prisma.replyLike.findUnique({
+      where: { userId_replyId: { userId, replyId } },
+      select: { userId: true },
+    })
+
+    let liked: boolean
+    if (existing) {
+      await prisma.replyLike.delete({ where: { userId_replyId: { userId, replyId } } })
+      liked = false
+    } else {
+      await prisma.replyLike.create({ data: { userId, replyId } })
+      liked = true
+    }
+
+    const count = await prisma.replyLike.count({ where: { replyId } })
+    return jsonData({ liked, count }, { status: 200 })
+  } catch (e) {
+    return jsonError(safeErrorMessage(e), 500, 'INTERNAL_ERROR')
+  }
+})
+
+export const GET = withAuth(async (req: NextRequest, ctx) => {
+  try {
+    const replyId = String(ctx.params?.replyId || '')
+    if (!replyId) return jsonError('Invalid replyId', 400, 'VALIDATION_ERROR')
+
+    const url = new URL(req.url)
+    const parsed = paginationSchema.safeParse({
+      cursor: url.searchParams.get('cursor') ?? undefined,
+      limit: url.searchParams.get('limit') ?? undefined,
+    })
+    if (!parsed.success) return jsonError('Invalid pagination', 400, 'VALIDATION_ERROR')
+    const { cursor, limit } = parsed.data
+
+    const likes = await prisma.replyLike.findMany({
+      where: { replyId },
+      take: limit + 1,
+      ...(cursor ? { cursor: { userId_replyId: { userId: cursor, replyId } }, skip: 1 } : {}),
+      orderBy: { createdAt: 'desc' },
+      select: {
+        user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+      },
+    })
+
+    const hasMore = likes.length > limit
+    const items = hasMore ? likes.slice(0, limit) : likes
+    const nextCursor = hasMore ? items[items.length - 1]!.user.id : null
+
+    return jsonData(items.map((l) => l.user), { status: 200, nextCursor })
+  } catch (e) {
+    return jsonError(safeErrorMessage(e), 500, 'INTERNAL_ERROR')
+  }
+})
+
